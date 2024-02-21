@@ -28,9 +28,8 @@ class FEKFMBL(GFLocalization, MapFeature):
 
         super().__init__(*args)  # initialize EKFLocalization
         self.xBpose_dim = self.Pose().shape[0] # Robot Pose dimensionality
-        # print(self.Pose().shape[0])
         self.xB_dim = self.xk_1.shape[0]  # Robot State dimensionality (might include the velocity or other terms)
-        self.xF_dim = self.Feature.feature.shape[0]  # Feature dimensionality
+        self.xF_dim =  self.Feature.feature.shape[0]  # Feature dimensionality
         self.zfi_dim = self.s2o(self.Feature.feature).shape[0]  # dimensionality of a single feature observation
 
         self.M = M  # Feature Based Map
@@ -74,7 +73,7 @@ class FEKFMBL(GFLocalization, MapFeature):
             hm = np.zeros((0,1))
         # Get features observation 
         if self.feature_flag == True:
-            hf = self.hf(xk[0:3], self.H)
+            hf = self.hf(xk, self.H)
         else:
             hf = np.zeros((0,1))
         # Stack measurement and observation together
@@ -96,6 +95,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         # TODO: To be completed by the student
         # read measurement prevoiusly done in part 1
         _hm = self.h_measurement(xk)
+
         return _hm
     
     def SquaredMahalanobisDistance(self, hfj, Pfj, zfi, Rfi):
@@ -182,16 +182,16 @@ class FEKFMBL(GFLocalization, MapFeature):
         # TODO: To be completed by the student
         hF = [] 
         PF = []
-        for i in range(self.nf):
+        xBpose_dim = self.xBpose_dim
+
+        for i in range(int((len(xk) - xBpose_dim)/2)):
             hF_i = self.hfj(xk, i)
             PF_i = self.Jhfjx(xk, i) @ Pk @ self.Jhfjx(xk, i).T
             hF.append(hF_i)
             PF.append(PF_i)
         H = self.ICNN(hF, PF, zf, Rf)
 
-        print("Acc mes" , zf)
-        print("Pre mea " , hF_i)
-        print("Hypotesis ", H)
+       
         self.H = H
         return H
 
@@ -216,7 +216,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         zm, Rm, Hm, Vm  = self.GetMeasurements()
         # get Feature
         zf, Rf, Hf, Vf  = self.GetFeatures()
-        print("Localize" , zf)
+     
         # Data Association
         Hp = self.DataAssociation(xk_bar, Pk_bar, zf, Rf)
         
@@ -253,23 +253,30 @@ class FEKFMBL(GFLocalization, MapFeature):
         """
 
         # TODO: To be completed by the student
-        zp, Rp, Hp, Vp, znp, Rnp = self.SplitFeatures(xk, zf, Rf, H)
-        
+        zp, Rp, Hp, Vp, znp, Rnp , zfa ,Rfa = self.SplitFeatures(xk, zf, Rf, H)
+
+        row_xk, col_xk  = xk.shape
+        row_hm, col_hm = Hm.shape
+
+        Hm  = np.block([[Hm , np.zeros( (row_hm , row_xk - col_hm ))]])
+ 
         if len(zm) == 0:
             zk, Rk, Hk, Vk = zp, Rp, Hp, Vp
         elif len(zp) == 0:
             zk, Rk, Hk, Vk = zm, Rm, Hm, Vm
         else:
-           
+            
+            
             zk = np.block([[zm], [zp]])
-           
+         
+        
             Rk = scipy.linalg.block_diag(Rm, Rp)
 
             Hk = np.block([[Hm], [Hp]])
 
             Vk = scipy.linalg.block_diag(Vm, Vp)
 
-        return zk, Rk, Hk, Vk, znp, Rnp
+        return zk, Rk, Hk, Vk, znp, Rnp , zfa , Rfa
 
     def SplitFeatures(self, xk, zf, Rf, H):
         """
@@ -287,15 +294,20 @@ class FEKFMBL(GFLocalization, MapFeature):
         # TODO: To be completed by the student
         zp = np.zeros((0, 1))  # empty vector
         Rp = np.zeros((0, 0))  # empty matrix
+        Rfa = np.zeros((0, 0)) # empty matrix
         Hp, Vp = np.zeros((0,np.shape(xk)[0])), np.zeros((0,0))
         znp = np.zeros((0,1))  # empty vector)
+        zfa = np.zeros((0,1))
         Rnp = np.zeros((0,0))  # empty matrix
        
         for i in range(0,len(H)):
+            zfa = np.block([[zfa], [zf[i]]])
+            Rfa= scipy.linalg.block_diag(Rfa, Rf[i])
+           
             j = H[i]
             if j != 0:
                 # Add feature observation
-                print(zf[i])
+               
                 zp = np.block([[zp], [zf[i]]])
                 
                 # Add feture uncertanity
@@ -310,9 +322,8 @@ class FEKFMBL(GFLocalization, MapFeature):
                 Rnp = scipy.linalg.block_diag(Rnp, Rf[i])
         
        
-        return zp, Rp, Hp, Vp, znp, Rnp
-
-    
+        return zp, Rp, Hp, Vp, znp, Rnp,zfa ,  Rfa
+  
     def PlotFeatureObservationUncertainty(self, zf, Rf, color):  # plots the feature observation uncertainty ellipse
         """
         Plots the uncertainty ellipse of the feature observations. This method is called by :meth:`FEKFMBL.PlotUncertainty`.
@@ -337,8 +348,9 @@ class FEKFMBL(GFLocalization, MapFeature):
         # For all feature observations
         nzf = 0 if zf is None else zf.size // self.zfi_dim
         for i in range(0, nzf):
-            
+            # print("Error: Feature observation" ,zf ,  zf[[i]] , nzf)
             BxF = self.Feature(zf[[i]])  # feature observation in the B-Frame
+            
             BRF = Rf[[i,i]]  # feature observation covariance in the B-Frame
             NxF = self.Feature(self.g(NxB, BxF))
             J = self.Jgv(NxB, BxF)

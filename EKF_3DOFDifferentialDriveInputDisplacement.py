@@ -73,6 +73,7 @@ class EKF_3DOFDifferentialDriveInputDisplacement(GFLocalization, DR_3DOFDifferen
         # TODO: To be completed by the student
         # Read compass sensor
         zk, Rk  = self.robot.ReadCompass()
+        print(zk)
         self.measurement_flag = False
       
         Hk  = np.array([0., 0., 1.]).reshape((1,3))

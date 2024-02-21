@@ -21,12 +21,15 @@ class FEKFSLAM_3DOFDD_InputVelocityMM_2DCartesianFeatureOM(FEKFSLAM2DCartesianFe
 
 if __name__ == '__main__':
 
-    M = [  CartesianFeature(np.array([[-40, 5]]).T),
+    M = [  
+           CartesianFeature(np.array([[-40, 5]]).T),
            CartesianFeature(np.array([[-5, 40]]).T),
            CartesianFeature(np.array([[-5, 25]]).T),
            CartesianFeature(np.array([[-3, 50]]).T),
            CartesianFeature(np.array([[-20, 3]]).T),
-           CartesianFeature(np.array([[40,-40]]).T)]  # feature map. Position of 2 point features in the world frame.
+           CartesianFeature(np.array([[40,-40]]).T)
+           
+        ]  # feature map. Position of 2 point features in the world frame.
 
     xs0 = np.zeros((6, 1))
     kSteps = 5000

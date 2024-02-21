@@ -85,12 +85,42 @@ class FEKFSLAM(FEKFMBL):
         
         ## To be completed by the student
       
-        xk_plus = np.block([[xk],[znp]])
+        # xk_plus = np.block([[xk],[znp]])
 
-        Pk_plus = sp.linalg.block_diag(Pk,Rnp)
+        # Pk_plus = sp.linalg.block_diag(Pk,Rnp)
+        xF_dim   = self.xF_dim
+        pose_dim = self.xBpose_dim
+        state_len = len(xk)
+        nf = int(len(znp) / self.xF_dim)
+        for i in range(nf):
+            start = i * self.xF_dim
+            znpi = znp[ start : start + xF_dim]
 
+            NxF = self.g(xk[0:pose_dim],znpi)
+            xk = np.block([[xk],[NxF]])
+           
 
-        return xk_plus, Pk_plus
+            Jgx = self.Jgx(xk , znpi)
+
+            End = Jgx@(Pk[0:pose_dim,0:pose_dim]) @ Jgx.T  # end digonal matrix 
+
+            Lower_block = Jgx@(Pk[0:pose_dim,0:pose_dim])  # 
+
+            Right_block = (Pk[0:pose_dim,0:pose_dim]) @ Jgx.T
+
+            for i in range(pose_dim , state_len , xF_dim):
+                
+                Lower = Jgx@Pk[0 : pose_dim, i:i+xF_dim]
+                Right = Pk[i:i+xF_dim,0:pose_dim] @ Jgx.T
+
+                Lower_block = np.block([[Lower_block , Lower]])
+                Right_block = np.block([[Right_block] , [Right]])
+
+            Pk = np.block([[Pk,Right_block],[Lower_block,End]])
+            state_len += xF_dim
+            # print("Pk_plus" , np.round_(xk ,2))
+            # print("Pk_plus", np.round_(Pk,2))
+        return xk , Pk
 
     def Prediction(self, uk, Qk, xk_1, Pk_1):
         """
@@ -194,8 +224,10 @@ class FEKFSLAM(FEKFMBL):
         # TODO: To be implemented by the student  
         # extract the pose and covariance of the robot only 
         xk_robot_1  = xk_1[0:self.xB_dim]
+
         Pk_robot_1  = Pk_1[0:self.xB_dim, 0:self.xB_dim]
         Pk_feture_1    = Pk_1[self.xB_dim: , self.xB_dim:]
+
         # Calculate Mean of the robot pose
         xk_robot= self.f(xk_robot_1, uk) # 3x3
         
@@ -203,7 +235,8 @@ class FEKFSLAM(FEKFMBL):
         Jfx  = self.Jfx(xk_robot, uk)
         Jfw = self.Jfw(xk_robot)
 
-        Pk_robot= np.round_(Jfx@Pk_robot_1@Jfx.T + Jfw@Qk@Jfw.T , 6)
+        Pk_robot= np.round_(Jfx@Pk_robot_1@Jfx.T + Jfw@Qk@Jfw.T , 4)
+
         # print("Pk_robot:", Pk_robot)
         if(len(Pk_1) <= self.xB_dim):
             
@@ -215,7 +248,7 @@ class FEKFSLAM(FEKFMBL):
 
             C = np.zeros((0,self.xB_dim))
 
-            self.xk_bar = np.concatenate((xk_robot , xk_1[3:]), axis=0)
+            self.xk_bar = np.concatenate((xk_robot , xk_1[self.xBpose_dim:]), axis=0)
             
             for i in range(self.xB_dim , len(Pk_1) , self.xF_dim):
                 
@@ -229,8 +262,8 @@ class FEKFSLAM(FEKFMBL):
             self.Pk_bar = np.round_(np.block([[Pk_robot, B] , [C , Pk_feture_1]]),3)
 
         # print(self.Pk_bar)
-        print("Xk:" , self.xk_bar)
-        print("\n PK:" , self.Pk_bar)
+        # print("Xk:" , self.xk_bar)
+        # print("\n PK:" , self.Pk_bar)
         return self.xk_bar, self.Pk_bar
 
         # return xk_bar, Pk_bar
@@ -252,35 +285,35 @@ class FEKFSLAM(FEKFMBL):
         # Get input to prediction step
         uk, Qk          = self.GetInput()
         # Prediction step
-        self.xk, self.Pk  = self.Prediction(uk, Qk, xk_1, Pk_1)
+        xk_bar, Pk_bar    = self.Prediction(uk, Qk, xk_1, Pk_1)
 
         # Get measurement
-        # zm, Rm, Hm, Vm  = self.GetMeasurements()
+        zm, Rm, Hm, Vm  = self.GetMeasurements()
         # get Feature
-        # zf, Rf, Hf, Vf  = self.GetFeatures()
+        zf, Rf, Hf, Vf  = self.GetFeatures()
 
         # Data Association
-        # Hp = self.DataAssociation(xk_bar, Pk_bar, zf, Rf)
-        
+        Hp = self.DataAssociation(xk_bar, Pk_bar, zf, Rf)
+        # print("Hp:", Hp)
         # Stack Meaurement and Feature Together  
-        # [zk, Rk, Hk, Vk, znp, Rnp] = self.StackMeasurementsAndFeatures(xk_bar, zm, Rm, Hm, Vm, zf, Rf, Hp)
+        [zk, Rk, Hk, Vk, znp, Rnp , zf , Rf] = self.StackMeasurementsAndFeatures(xk_bar, zm, Rm, Hm, Vm, zf, Rf, Hp)
         # Update step
-   
-        # xk, Pk  = self.Update(zk, Rk, xk_bar, Pk_bar, Hk, Vk)
-        
+     
+        xk, Pk  = self.Update(zk, Rk, xk_bar, Pk_bar, Hk, Vk)
+       
+        # if(len(znp) >= self.xF_dim):
+            # print("Add Feture ")
+            # xk , Pk = self.AddNewFeatures(xk ,Pk , znp, Rnp)
         # add new features to the map
-        zf = []
-        Rf = []
-        zm = []
-        znp = []
-        Rnp = []
+        self.xk = xk
+        self.Pk = Pk
         # Use the variable names zm, zf, Rf, znp, Rnp so that the plotting functions work
         self.Log(self.robot.xsk, self.GetRobotPose(self.xk), self.GetRobotPoseCovariance(self.Pk),
                  self.GetRobotPose(self.xk_bar), zm)  # log the results for plotting
 
         self.PlotUncertainty(zf, Rf, znp, Rnp)
         return self.xk, self.Pk
-
+    
     def PlotMappedFeaturesUncertainty(self):
         """
         This method plots the uncertainty of the mapped features. It plots the uncertainty ellipses of the mapped
@@ -313,7 +346,7 @@ class FEKFSLAM(FEKFMBL):
         """
         if self.k % self.robot.visualizationInterval == 0:
             self.PlotRobotUncertainty()
-            # self.PlotFeatureObservationUncertainty(znp, Rnp,'b')
-            # self.PlotFeatureObservationUncertainty(zf, Rf,'g')
-            # self.PlotExpectedFeaturesObservationsUncertainty()
-            # self.PlotMappedFeaturesUncertainty()
+            self.PlotFeatureObservationUncertainty(znp, Rnp,'b')
+            self.PlotFeatureObservationUncertainty(zf, Rf,'g')
+            self.PlotExpectedFeaturesObservationsUncertainty()
+            self.PlotMappedFeaturesUncertainty()

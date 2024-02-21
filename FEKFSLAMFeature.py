@@ -8,7 +8,7 @@ class FEKFSLAMFeature(MapFeature):
     while the latter uses the robot pose and the feature map as state variables. This means that few methods provided by
     class need to be overridden to gather the information from state vector instead that from the deterministic map.
     """
-    def hfj(self, xk_bar, Fj):  # Observation function for zf_i and x_Fj
+    def hfj(self, xk_bar, j):  # Observation function for zf_i and x_Fj
         """
         This method implements the direct observation model for a single feature observation  :math:`z_{f_i}` , so it implements its related
         observation function (see eq. :eq:`eq-FEKFSLAM-hfj`). For a single feature observation :math:`z_{f_i}` of the feature :math:`^Nx_{F_j}` the method computes its
@@ -38,13 +38,26 @@ class FEKFSLAMFeature(MapFeature):
         ## To be completed by the student
         # TODO: To be implemented by the student
         # Get Pose vector from the filter state
-        NxB = xk_bar[0:3,0].reshape((3,1))
-        Fj = self.M[Fj]
+        xB_dim = self.xB_dim
+        xBpose_dim = self.xBpose_dim  
+        xF_dim = self.xF_dim
+
+        index = j
+
+        NxB = self.GetRobotPose(xk_bar)
+        # Where j is index of the paired observed feature 
+        # J = 1 indecates the feature one 
+        start_index = xBpose_dim +xF_dim*index # Start index of the feture J 
+        # print( "Fj" , index ,  xk_bar[start_index : start_index +  xF_dim])
+        Fj = self.Feature(xk_bar[start_index : start_index +  xF_dim])
+        
+        # Fj = self.M[Fj]
+        
         _hfj = self.s2o(Fj.boxplus(Pose3D.ominus(NxB)))
         return _hfj
-        #return ...
+ 
 
-    def Jhfjx(self, xk, Fj):  # Observation function for zf_i and x_Fj
+    def Jhfjx(self, xk, j):  # Observation function for zf_i and x_Fj
         """
         Jacobian of the single feature direct observation model :meth:`hfj` (eq. :eq:`eq-FEKFSLAM-hfj`)  with respect to the state vector :math:`\\bar{x}_k`:
 
@@ -76,12 +89,34 @@ class FEKFSLAMFeature(MapFeature):
         ## To be completed by the student
         xB_dim = self.xB_dim
         xBpose_dim = self.xBpose_dim     
+        xF_dim = self.xF_dim
+        index = j
+
         NxB = self.GetRobotPose(xk)
-        Fj = self.M[Fj]
+        start_index = xBpose_dim+ xF_dim*index
+        # print( "Fjj" , index ,  xk[start_index : start_index +  xF_dim])
+        Fj = self.Feature(xk[start_index : start_index +  xF_dim])
+        # Fj = self.M[Fj]
         # Compute the F matrix, which converts vector from filter state to pose
         F = np.block([np.diag(np.ones(xBpose_dim)), np.zeros((xBpose_dim, xB_dim-xBpose_dim))])
-        J = self.J_s2o(Fj.boxplus(Pose3D.ominus(NxB))) @ Fj.J_1boxplus( Pose3D.ominus(NxB)) @ Pose3D.J_ominus(NxB) @F
-        # print("Dimensionality" , J.shape)
+        
+        J1 = self.J_s2o(Fj.boxplus(Pose3D.ominus(NxB))) @ Fj.J_1boxplus( Pose3D.ominus(NxB)) @ Pose3D.J_ominus(NxB) @F
+        J2 = self.J_s2o(Fj.boxplus(Pose3D.ominus(NxB))) @ Fj.J_2boxplus( Pose3D.ominus(NxB)) 
+        
+        J = np.zeros((xF_dim,0))
+        J = np.block([J, J1])
+
+        # print( "Fj" , index ,  xk[start_index : start_index +  xF_dim])
+
+        for i in range(int((len(xk)-xBpose_dim)/2)):
+            print( "match jackobian" , i , j)
+            if(i==j):
+             J = np.block([J, J2])
+            else:
+                J = np.block([J, np.zeros((xF_dim , xF_dim))])
+
+
+        print("jk" , J)
         return J
         #return ...
 

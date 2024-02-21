@@ -54,7 +54,7 @@ class SimulatedRobot:
 
         # Inititalize the robot animation
         
-        self.vehicleIcon = VehicleIcon('/home/elias/Desktop/PR-LAb4_part2_3_FEKEMBL/PR_LAB4-main/PR_LAB4-main/DifferentialDrive.png', scale=1, rotation=90) # Image of the robot to be used in the animation. By default it uses the image of a Differential Mobile Robot.
+        self.vehicleIcon = VehicleIcon('EKF_SLAM/DifferentialDrive.png', scale=1, rotation=90) # Image of the robot to be used in the animation. By default it uses the image of a Differential Mobile Robot.
         self.vehicleFig = plt.figure()
         self.vehicleAxes = plt.axes()
         plt.xlabel("x")

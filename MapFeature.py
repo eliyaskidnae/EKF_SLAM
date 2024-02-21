@@ -284,6 +284,7 @@ class MapFeature:
 
         # TODO: To be implemented by the student
         NxB = self.GetRobotPose(xk)
+        BxFj = self.Feature(BxFj)
         NxFj =(self.o2s(BxFj)).boxplus(NxB)
         
 
@@ -312,10 +313,10 @@ class MapFeature:
         xBpose_dim = self.xBpose_dim
         NxB = self.GetRobotPose(xk)
         xF_dim = np.shape(BxFj)[0]       
-        Jp = (self.o2s(BxFj)).J_1boxplus(NxB)
+        Jp = (self.o2s(self.Feature(BxFj))).J_1boxplus(NxB)
         Jnp =  np.zeros((xF_dim, xB_dim-xF_dim))       
         J = np.block([Jp,Jnp])
-        return J
+        return Jp
 
     def Jgv(self, xk, BxFj):
         """
@@ -360,7 +361,7 @@ class Cartesian2DMapFeature(MapFeature):
         zf, Rf = self.robot.ReadCartesian2DFeature()
         Hf = []
         Vf = []
-        print("Map Feature" , zf)
+        # print("Map Feature" , zf)
         # Raise flag got feature
         if len(zf) != 0:
             self.feature_flag = True

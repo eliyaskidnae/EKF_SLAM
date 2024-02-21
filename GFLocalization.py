@@ -104,7 +104,7 @@ class GFLocalization(Localization,GaussianFilter):
         # self.xk = xk_bar
         # self.Pk = Pk_bar
 
-        return xk, Pk, xk_bar, zk , Rk
+        return xk, Pk
 
     def LocalizationLoop(self, x0, P0, usk):
         """
@@ -124,14 +124,18 @@ class GFLocalization(Localization,GaussianFilter):
 
         znp = np.array([[1],[2] ,[2],[4] , [5] ,[6] ,[7], [8]])
 
-        Rfc = np.diag(np.array([1** 2,1 ** 2])) 
+        Rfc = np.diag(np.array([0.1** 2,0.1 ** 2])) 
+
+        
         Rnp = np.zeros((0,0))
         for i in range(int(len(znp) /2)):
             Rnp= sp.linalg.block_diag(Rnp,Rfc)
         
         # Hard coding add initial features to the state vector
-
-        xk_1, Pk_1 = self.AddNewFeatures(xk_1 , Pk_1, znp, Rnp)
+        # xk_1 = np.block([[xk_1],[znp]])
+        
+        # Pk_1 = sp.linalg.block_diag(Pk_1,Rnp)
+        # xk_1, Pk_1 = self.AddNewFeatures(xk_1 , Pk_1, znp, Rnp)
         # print(xk_1 , Pk_1)
 
         for self.k in range(self.kSteps):
@@ -142,17 +146,9 @@ class GFLocalization(Localization,GaussianFilter):
             xsk_1 = xsk  # current state becomes previous state for next iteration
             xk_1 = xk
             Pk_1 = Pk
+            self.PlotTrajectory()
 
-    def arrange_for_plotting(self,zf,Rf):
-        zfb = np.zeros((0, 1))  # empty vector
-        Rfb = np.zeros((0, 0))  # empty matrix
-        for i in range(len(zf)):
-                
-            zfb = np.block([[zfb], [zf[i]]])         
-                # Add feture uncertanity
-            Rfb = scipy.linalg.block_diag(Rfb, Rf[i])
-        
-        return zfb , Rfb
+        plt.show()
         
     def Log(self, xsk, xk, Pk, xk_bar, zk):
 

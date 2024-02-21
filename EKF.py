@@ -112,6 +112,8 @@ class EKF(GaussianFilter):
             # Compute Kalman gain
             Kk = self.Pk_bar @ Hk.T @ np.linalg.inv(Hk @ self.Pk_bar @ Hk.T + Vk @ Rk @ Vk.T)
 
+            print("Expected" , zk )
+            print("Prd" ,self.h(self.xk_bar) )
             # Compute updated state and covariance
             self.xk  = self.xk_bar + Kk @ (zk - self.h(self.xk_bar))
             I        = np.diag(np.ones(len(xk_bar)))

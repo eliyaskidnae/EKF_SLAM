@@ -68,7 +68,7 @@ class DifferentialDriveSimulatedRobot(SimulatedRobot):
 
         # Initialize the sensor simulation
         self.encoder_reading_frequency = 1  # frequency of encoder readings
-        self.Re= np.diag(np.array([22 ** 2, 22 ** 2]))  # covariance of simulated wheel encoder noise
+        self.Re= np.diag(np.array([5 ** 2, 5 ** 2]))  # covariance of simulated wheel encoder noise
 
         self.Cartesian2D_feature_reading_frequency = 1 # frequency of Polar2D feature readings
         self.Cartesian2D_max_range = 50  # maximum Cartesian2Drange, used to simulate the field of view
@@ -80,7 +80,7 @@ class DifferentialDriveSimulatedRobot(SimulatedRobot):
         
         self.xy_feature_reading_frequency = 1 # frequency of XY feature readings
         self.xy_max_range = 50  # maximum XY range, used to simulate the field of view
-        self.yaw_reading_frequency = 5000 # frequency of Yasw readings
+        self.yaw_reading_frequency = 10 # frequency of Yasw readings
         self.v_yaw_std = np.deg2rad(5)  # std deviation of simulated heading noise
 
     def fs(self, xsk_1, usk):  # input velocity motion model with velocity noise

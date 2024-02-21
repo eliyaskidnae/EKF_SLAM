@@ -75,7 +75,7 @@ class DR_3DOFDifferentialDrive(Localization):
         w  =  (vr - vl)/ self.wheelBase#
         v  = np.array([[vx],[0], [w]])
                 
-        Qk = np.diag(np.array([0.05** 2, 0.** 2, np.deg2rad(0.2) ** 2]))  # Process noise
+        Qk = np.diag(np.array([0.005** 2, 0.005** 2, np.deg2rad(0.02) ** 2]))  # Process noise
         displacment  = Pose3D(v * self.dt) + np.random.multivariate_normal([0,0,0],Qk).reshape(3,1)
        
 
