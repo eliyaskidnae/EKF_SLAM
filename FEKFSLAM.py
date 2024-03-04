@@ -80,29 +80,22 @@ class FEKFSLAM(FEKFMBL):
         :param Rnp: Matrix of non-paired feature observation covariances
         :return: [xk_plus, Pk_plus] state vector mean and covariance after adding the new features
         """
-
-        assert znp.size > 0, "AddNewFeatures: znp is empty"
-        
-        ## To be completed by the student
-      
-        # xk_plus = np.block([[xk],[znp]])
-
-        # Pk_plus = sp.linalg.block_diag(Pk,Rnp)
-        xF_dim   = self.xF_dim
-        pose_dim = self.xBpose_dim
-        state_len = len(xk)
-        nf = int(len(znp) / self.xF_dim)
-        for i in range(nf):
+        assert znp.size > 0, "AddNewFeatures: znp is empty"   
+        xF_dim    = self.xF_dim      # dimension of one feature  
+        pose_dim  = self.xB_dim  # dimension of the robot pose 
+        # sate_dim  = self.xB_dim
+        state_len = len(xk) # length of the state vector including feature 
+        nf_new = int( len(znp) / self.xF_dim) # number of un paired  features 
+        for i in range(nf_new):
             start = i * self.xF_dim
-            znpi = znp[ start : start + xF_dim]
+            BxFj = znp[ start : start + xF_dim] # extract one feature observation
+            Rfpi = Rnp[ start: start + xF_dim , start :  start + xF_dim] # extract uncertainity of one observation 
+            NxF = self.g(xk[0:pose_dim],BxFj) # coupute feature observation in the N Frame 
+            xk = np.block([[xk],[NxF]]) # Add Unpaired Feature to the state vector 
+            Jgx = self.Jgx(xk , BxFj) # jacobian with respect state 
+            Jgv = self.Jgv(xk , BxFj) # jacobian with respect observation noise 
 
-            NxF = self.g(xk[0:pose_dim],znpi)
-            xk = np.block([[xk],[NxF]])
-           
-
-            Jgx = self.Jgx(xk , znpi)
-
-            End = Jgx@(Pk[0:pose_dim,0:pose_dim]) @ Jgx.T  # end digonal matrix 
+            End = Jgx@(Pk[0:pose_dim,0:pose_dim]) @ Jgx.T + Jgv@Rfpi@Jgv.T # end digonal matrix 
 
             Lower_block = Jgx@(Pk[0:pose_dim,0:pose_dim])  # 
 
@@ -110,17 +103,18 @@ class FEKFSLAM(FEKFMBL):
 
             for i in range(pose_dim , state_len , xF_dim):
                 
-                Lower = Jgx@Pk[0 : pose_dim, i:i+xF_dim]
+                # Lower = Jgx@Pk[0 : pose_dim, i:i+xF_dim]
                 Right = Pk[i:i+xF_dim,0:pose_dim] @ Jgx.T
-
-                Lower_block = np.block([[Lower_block , Lower]])
+                # Lower_block = np.block([[Lower_block , Lower]])
                 Right_block = np.block([[Right_block] , [Right]])
+            # Merge all blocks together
+            Pk = np.block([[Pk,Right_block],[Right_block.T,End]])
+            state_len += xF_dim # state vector length
 
-            Pk = np.block([[Pk,Right_block],[Lower_block,End]])
-            state_len += xF_dim
-            # print("Pk_plus" , np.round_(xk ,2))
-            # print("Pk_plus", np.round_(Pk,2))
+        self.nf = int((len(xk) - self.xB_dim)/2) # number of features
+
         return xk , Pk
+    
 
     def Prediction(self, uk, Qk, xk_1, Pk_1):
         """
@@ -223,46 +217,56 @@ class FEKFSLAM(FEKFMBL):
         # KF equations begin here
         # TODO: To be implemented by the student  
         # extract the pose and covariance of the robot only 
-        xk_robot_1  = xk_1[0:self.xB_dim]
 
-        Pk_robot_1  = Pk_1[0:self.xB_dim, 0:self.xB_dim]
-        Pk_feture_1    = Pk_1[self.xB_dim: , self.xB_dim:]
+        robot_state_dim = self.xB_dim # only robot state vector length including velocity 
+        state_dim = len(xk_1) # state vector length including features
+
+        xk_robot_1  = xk_1[0:robot_state_dim]
+
+        Pk_robot_1  = Pk_1[0:robot_state_dim, 0:robot_state_dim] # the uncertainity of the robot only
+       
+       
+        Pk_feature  = Pk_1[robot_state_dim: , robot_state_dim:] # the uncertainity of the features only 
 
         # Calculate Mean of the robot pose
-        xk_robot= self.f(xk_robot_1, uk) # 3x3
+        xk_robot= self.f(xk_robot_1, uk) # mean of the robot pose
         
         # Calculate Jacobian and  covariance
-        Jfx  = self.Jfx(xk_robot, uk)
-        Jfw = self.Jfw(xk_robot)
+        Jfx  = self.Jfx(xk_robot, uk) # jacobian with respect state 
+        Jfw = self.Jfw(xk_robot) # jacobian with respect noise 
 
-        Pk_robot= np.round_(Jfx@Pk_robot_1@Jfx.T + Jfw@Qk@Jfw.T , 4)
+        Pk_robot= Jfx@Pk_robot_1@Jfx.T + Jfw@Qk@Jfw.T 
 
-        # print("Pk_robot:", Pk_robot)
-        if(len(Pk_1) <= self.xB_dim):
+        # if there is Feature in the state vector return with out doing nothing
+        if(state_dim <= robot_state_dim):
             
             self.xk_bar = xk_robot
             self.Pk_bar= Pk_robot
-
+        # if there is Feture in the state vector update the correlation 
         else :
-            B = np.zeros((self.xB_dim,0))
-
-            C = np.zeros((0,self.xB_dim))
-
-            self.xk_bar = np.concatenate((xk_robot , xk_1[self.xBpose_dim:]), axis=0)
             
-            for i in range(self.xB_dim , len(Pk_1) , self.xF_dim):
+            # concatinate the updated mean 
+            self.xk_bar = np.concatenate((xk_robot , xk_1[robot_state_dim:]), axis=0)
+            B = np.zeros((robot_state_dim,0)) # variable to store the row and col correlation with robot
+
+            # loop through each features in the state vector
+            # start , end ,step 
+            print("state_dim" , robot_state_dim , len(Pk_1) ,len(xk_1) )
+            
+            # loop through each features in the state vector
+            for i in range(robot_state_dim , state_dim , self.xF_dim):
                 
-                Side_col = Jfx@np.round_(Pk_1[0 : self.xB_dim , i:i+self.xF_dim ],3)
-                Left_row = np.round_(Pk_1[ i:i+self.xF_dim ,0:self.xB_dim ],3) @ Jfx.T
-          
-                C = np.block([[C] , [Left_row]])
+                Side_col = Jfx@(Pk_1[0 : robot_state_dim , i:i+self.xF_dim ])
+                # Left_row = (Pk_1[ i:i+self.xF_dim ,0:robot_state_dim ])@ Jfx.T
                 B = np.block([[B , Side_col]])
+                # C = np.block([[C] , [Left_row]])
                 
-                
-            self.Pk_bar = np.round_(np.block([[Pk_robot, B] , [C , Pk_feture_1]]),3)
+            # Merge All blocks together 
+            self.Pk_bar = np.block([[Pk_robot, B] , [B.T , Pk_feature]])
 
         # print(self.Pk_bar)
         # print("Xk:" , self.xk_bar)
+       
         # print("\n PK:" , self.Pk_bar)
         return self.xk_bar, self.Pk_bar
 
@@ -297,14 +301,16 @@ class FEKFSLAM(FEKFMBL):
         # print("Hp:", Hp)
         # Stack Meaurement and Feature Together  
         [zk, Rk, Hk, Vk, znp, Rnp , zf , Rf] = self.StackMeasurementsAndFeatures(xk_bar, zm, Rm, Hm, Vm, zf, Rf, Hp)
+        
+    
         # Update step
      
         xk, Pk  = self.Update(zk, Rk, xk_bar, Pk_bar, Hk, Vk)
-       
-        # if(len(znp) >= self.xF_dim):
-            # print("Add Feture ")
-            # xk , Pk = self.AddNewFeatures(xk ,Pk , znp, Rnp)
         # add new features to the map
+
+        if(len(znp) >= self.xF_dim):
+            xk , Pk = self.AddNewFeatures(xk ,Pk , znp, Rnp)
+        
         self.xk = xk
         self.Pk = Pk
         # Use the variable names zm, zf, Rf, znp, Rnp so that the plotting functions work
@@ -312,6 +318,7 @@ class FEKFSLAM(FEKFMBL):
                  self.GetRobotPose(self.xk_bar), zm)  # log the results for plotting
 
         self.PlotUncertainty(zf, Rf, znp, Rnp)
+        
         return self.xk, self.Pk
     
     def PlotMappedFeaturesUncertainty(self):

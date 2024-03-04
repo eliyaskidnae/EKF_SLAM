@@ -314,9 +314,9 @@ class MapFeature:
         NxB = self.GetRobotPose(xk)
         xF_dim = np.shape(BxFj)[0]       
         Jp = (self.o2s(self.Feature(BxFj))).J_1boxplus(NxB)
-        Jnp =  np.zeros((xF_dim, xB_dim-xF_dim))       
+        Jnp =  np.zeros((xF_dim, xB_dim-xBpose_dim))       
         J = np.block([Jp,Jnp])
-        return Jp
+        return J
 
     def Jgv(self, xk, BxFj):
         """
@@ -336,7 +336,7 @@ class MapFeature:
         xBpose_dim = self.xBpose_dim
         # Get Pose vector from the filter state
         NxB = xk[0:xBpose_dim,0].reshape((xBpose_dim,1))            
-        J = (self.o2s(BxFj)).J_2boxplus( NxB) @ self.J_o2s(BxFj)
+        J = (self.o2s(self.Feature(BxFj))).J_2boxplus( NxB) @ self.J_o2s(BxFj)
         return J
 
 

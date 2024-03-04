@@ -100,22 +100,29 @@ class EKF(GaussianFilter):
         :param Vk: Jacobian of the observation model with respect to the noise vector.
         :return xk,Pk: updated mean state vector and its covariance matrix. Also updated in the class attributes.
         """
+
         # logging for plotting
         self.xk_bar = xk_bar
         self.Pk_bar = Pk_bar
         self.zk = zk
         self.nz = zk.shape[0];  # store dimensionality of the observation
         self.Rk = Rk  # store the observation and noise covariance for logging
+
+        # print('xk ', self.xk_bar.T)
+        # print('zk ', self.zk.T)
+        # print('Paire ', self.H)
         
         # TODO: To be implemented by the student
         if self.measurement_flag == True or self.feature_flag == True:
             # Compute Kalman gain
             Kk = self.Pk_bar @ Hk.T @ np.linalg.inv(Hk @ self.Pk_bar @ Hk.T + Vk @ Rk @ Vk.T)
 
-            print("Expected" , zk )
-            print("Prd" ,self.h(self.xk_bar) )
+            # print("Expected" , zk )
+            # print("Prd" ,self.h(self.xk_bar) )
             # Compute updated state and covariance
             self.xk  = self.xk_bar + Kk @ (zk - self.h(self.xk_bar))
+
+
             I        = np.diag(np.ones(len(xk_bar)))
             self.Pk  = (I - Kk @ Hk) @ self.Pk_bar @ (I - Kk @ Hk).T
         else:

@@ -76,7 +76,8 @@ class FEKFMBL(GFLocalization, MapFeature):
             hf = self.hf(xk, self.H)
         else:
             hf = np.zeros((0,1))
-        # Stack measurement and observation together
+
+        # Stack measurement and feature observation together zf + zm
         h_mf = np.block([[hm], [hf]])
 
         return h_mf
@@ -93,7 +94,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         """
 
         # TODO: To be completed by the student
-        # read measurement prevoiusly done in part 1
+        # read the expected measurement 
         _hm = self.h_measurement(xk)
 
         return _hm
@@ -183,15 +184,14 @@ class FEKFMBL(GFLocalization, MapFeature):
         hF = [] 
         PF = []
         xBpose_dim = self.xBpose_dim
-
-        for i in range(int((len(xk) - xBpose_dim)/2)):
+        xB_dim = self.xB_dim   
+        for i in range(self.nf):
             hF_i = self.hfj(xk, i)
             PF_i = self.Jhfjx(xk, i) @ Pk @ self.Jhfjx(xk, i).T
             hF.append(hF_i)
             PF.append(PF_i)
         H = self.ICNN(hF, PF, zf, Rf)
-
-       
+    
         self.H = H
         return H
 
@@ -221,7 +221,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         Hp = self.DataAssociation(xk_bar, Pk_bar, zf, Rf)
         
         # Stack Meaurement and Feature Together  
-        [zk, Rk, Hk, Vk, znp, Rnp] = self.StackMeasurementsAndFeatures(xk_bar, zm, Rm, Hm, Vm, zf, Rf, Hp)
+        [zk, Rk, Hk, Vk, znp, Rnp,zf,Rf] = self.StackMeasurementsAndFeatures(xk_bar, zm, Rm, Hm, Vm, zf, Rf, Hp)
         # Update step
    
         xk, Pk  = self.Update(zk, Rk, xk_bar, Pk_bar, Hk, Vk)
@@ -229,7 +229,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         self.Log(self.robot.xsk, self.GetRobotPose(self.xk), self.GetRobotPoseCovariance(self.Pk),
                  self.GetRobotPose(self.xk_bar), zm)  # log the results for plotting
 
-        self.PlotUncertainty(zf, Rf)
+        self.PlotUncertainty(zf, Rf )
         return xk, Pk
     def StackMeasurementsAndFeatures(self, xk, zm, Rm, Hm, Vm, zf, Rf, H):
         """
@@ -254,26 +254,20 @@ class FEKFMBL(GFLocalization, MapFeature):
 
         # TODO: To be completed by the student
         zp, Rp, Hp, Vp, znp, Rnp , zfa ,Rfa = self.SplitFeatures(xk, zf, Rf, H)
-
         row_xk, col_xk  = xk.shape
-        row_hm, col_hm = Hm.shape
-
+        row_hm, col_hm  = Hm.shape
+        # Arrange Hm to include the feature state vector
         Hm  = np.block([[Hm , np.zeros( (row_hm , row_xk - col_hm ))]])
- 
+        # print("Hm", Hm)
         if len(zm) == 0:
             zk, Rk, Hk, Vk = zp, Rp, Hp, Vp
         elif len(zp) == 0:
             zk, Rk, Hk, Vk = zm, Rm, Hm, Vm
         else:
-            
-            
+               
             zk = np.block([[zm], [zp]])
-         
-        
             Rk = scipy.linalg.block_diag(Rm, Rp)
-
             Hk = np.block([[Hm], [Hp]])
-
             Vk = scipy.linalg.block_diag(Vm, Vp)
 
         return zk, Rk, Hk, Vk, znp, Rnp , zfa , Rfa
@@ -285,7 +279,6 @@ class FEKFMBL(GFLocalization, MapFeature):
         its covariance matrix :math:`R_p`, and the vector of non-paired feature observations :math:`z_{np}` together with its covariance matrix :math:`R_{np}`.
         The paired observations will be used to update the filter, while the non-paired ones will be considered as outliers.
         In the case of SLAM, they become new feature candidates.
-
         :param zf: vector of feature observations
         :param Rf: covariance matrix of feature observations
         :param H: hypothesis of feature associations
@@ -301,28 +294,28 @@ class FEKFMBL(GFLocalization, MapFeature):
         Rnp = np.zeros((0,0))  # empty matrix
        
         for i in range(0,len(H)):
+
+            # reshape the feature observation and its covariance matrix
             zfa = np.block([[zfa], [zf[i]]])
             Rfa= scipy.linalg.block_diag(Rfa, Rf[i])
            
             j = H[i]
             if j != 0:
-                # Add feature observation
-               
-                zp = np.block([[zp], [zf[i]]])
-                
-                # Add feture uncertanity
+                # Add feature observation             
+                zp = np.block([[zp], [zf[i]]])         
+                # Add feature uncertanity
                 Rp = scipy.linalg.block_diag(Rp, Rf[i])
                 
+                # Add jacobian with respect to the state vector
                 Hp = np.block([[Hp], [self.Jhfjx(xk, j-1)]])
-
+                # Add jacbian with respect to the feature observation noise
                 Vp = scipy.linalg.block_diag(Vp, np.diag(np.ones(self.xF_dim)))
 
             else:
                 znp = np.block([[znp], [zf[i]]])
                 Rnp = scipy.linalg.block_diag(Rnp, Rf[i])
         
-       
-        return zp, Rp, Hp, Vp, znp, Rnp,zfa ,  Rfa
+        return zp, Rp, Hp, Vp, znp, Rnp, zfa ,  Rfa
   
     def PlotFeatureObservationUncertainty(self, zf, Rf, color):  # plots the feature observation uncertainty ellipse
         """
@@ -332,8 +325,8 @@ class FEKFMBL(GFLocalization, MapFeature):
         :param Rf: covariance matrix of the feature observations
         """
 
-        zf=BlockArray(zf,self.zfi_dim)
-        Rf=BlockArray(Rf,self.zfi_dim)
+        zf = BlockArray(zf,self.zfi_dim)
+        Rf = BlockArray(Rf,self.zfi_dim)
 
         if zf is not None:
             # Remove previous feature observation ellipses
@@ -419,7 +412,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         """
         if self.k % self.robot.visualizationInterval == 0:
             self.PlotRobotUncertainty()
-            # self.PlotFeatureObservationUncertainty(zf, Rf,'b')
+            self.PlotFeatureObservationUncertainty(zf, Rf,'b')
             self.PlotExpectedFeaturesObservationsUncertainty()
 
     def GetRobotPose(self, xk):

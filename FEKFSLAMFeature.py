@@ -47,7 +47,7 @@ class FEKFSLAMFeature(MapFeature):
         NxB = self.GetRobotPose(xk_bar)
         # Where j is index of the paired observed feature 
         # J = 1 indecates the feature one 
-        start_index = xBpose_dim +xF_dim*index # Start index of the feture J 
+        start_index = xB_dim +xF_dim*index # Start index of the feture J 
         # print( "Fj" , index ,  xk_bar[start_index : start_index +  xF_dim])
         Fj = self.Feature(xk_bar[start_index : start_index +  xF_dim])
         
@@ -93,7 +93,7 @@ class FEKFSLAMFeature(MapFeature):
         index = j
 
         NxB = self.GetRobotPose(xk)
-        start_index = xBpose_dim+ xF_dim*index
+        start_index = xB_dim+ xF_dim*index
         # print( "Fjj" , index ,  xk[start_index : start_index +  xF_dim])
         Fj = self.Feature(xk[start_index : start_index +  xF_dim])
         # Fj = self.M[Fj]
@@ -104,19 +104,19 @@ class FEKFSLAMFeature(MapFeature):
         J2 = self.J_s2o(Fj.boxplus(Pose3D.ominus(NxB))) @ Fj.J_2boxplus( Pose3D.ominus(NxB)) 
         
         J = np.zeros((xF_dim,0))
+        x = np.zeros((2,1))
         J = np.block([J, J1])
 
         # print( "Fj" , index ,  xk[start_index : start_index +  xF_dim])
 
-        for i in range(int((len(xk)-xBpose_dim)/2)):
-            print( "match jackobian" , i , j)
+        for i in range(self.nf):
+            # print( "match jackobian" , i , j)
             if(i==j):
              J = np.block([J, J2])
             else:
-                J = np.block([J, np.zeros((xF_dim , xF_dim))])
+             J = np.block([J, np.zeros((xF_dim , xF_dim))])
 
-
-        print("jk" , J)
+        # print("Jk" , J)
         return J
         #return ...
 

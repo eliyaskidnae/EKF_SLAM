@@ -21,15 +21,17 @@ class MBL_3DOFDDInputDisplacementMM_2DCartesianFeatureOM(Cartesian2DMapFeature, 
 
 if __name__ == '__main__':
 
-    M = [  CartesianFeature(np.array([[-40, 5]]).T), 
+    M = [  
+           CartesianFeature(np.array([[-40, 5]]).T), 
            CartesianFeature(np.array([[-5, 40]]).T), 
            CartesianFeature(np.array([[-5, 25]]).T), 
            CartesianFeature(np.array([[-3, 50]]).T),
            CartesianFeature(np.array([[-20, 3]]).T),
-           CartesianFeature(np.array([[40,-40]]).T)]  # feature map. Position of 2 point features in the world frame.
+           CartesianFeature(np.array([[40,-40]]).T)
+           ]  # feature map. Position of 2 point features in the world frame.
 
     xs0 = np.zeros((6, 1))
-    kSteps = 3000
+    kSteps = 5000
     alpha = 0.95
 
     index = [IndexStruct("x", 0, None), IndexStruct("y", 1, None), IndexStruct("yaw", 2, 1)]

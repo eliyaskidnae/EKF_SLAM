@@ -68,19 +68,19 @@ class DifferentialDriveSimulatedRobot(SimulatedRobot):
 
         # Initialize the sensor simulation
         self.encoder_reading_frequency = 1  # frequency of encoder readings
-        self.Re= np.diag(np.array([5 ** 2, 5 ** 2]))  # covariance of simulated wheel encoder noise
+        self.Re= np.diag(np.array([22 ** 2, 22 ** 2]))  # covariance of simulated wheel encoder noise
 
-        self.Cartesian2D_feature_reading_frequency = 1 # frequency of Polar2D feature readings
+        self.Cartesian2D_feature_reading_frequency = 50 # frequency of Polar2D feature readings
         self.Cartesian2D_max_range = 50  # maximum Cartesian2Drange, used to simulate the field of view
-        self.Rfc = np.diag(np.array([0.25 ** 2,0.5 ** 2]))  # covariance of simulated Polar2D feature noise
+        self.Rfc = np.diag(np.array([0.05 ** 2,0.01** 2]))  # covariance of simulated Polar2D feature noise
 
-        self.Polar2D_feature_reading_frequency = 1  # frequency of Polar2D feature readings
+        self.Polar2D_feature_reading_frequency = 50  # frequency of Polar2D feature readings
         self.Polar2D_max_range = 50  # maximum Polar2D range, used to simulate the field of view
         self.Rfp = np.diag(np.array([1 ** 2, np.deg2rad(1.5) ** 2]))  # covariance of simulated Polar2D feature noise
         
         self.xy_feature_reading_frequency = 1 # frequency of XY feature readings
         self.xy_max_range = 50  # maximum XY range, used to simulate the field of view
-        self.yaw_reading_frequency = 10 # frequency of Yasw readings
+        self.yaw_reading_frequency = 100# frequency of Yasw readings
         self.v_yaw_std = np.deg2rad(5)  # std deviation of simulated heading noise
 
     def fs(self, xsk_1, usk):  # input velocity motion model with velocity noise
@@ -158,7 +158,7 @@ class DifferentialDriveSimulatedRobot(SimulatedRobot):
         nL = dl * self.pulse_x_wheelTurns / (2 * np.pi * self.wheelRadius)
         nR = dr * self.pulse_x_wheelTurns / (2 * np.pi * self.wheelRadius)
         noise = np.random.normal(0, np.sqrt(self.Re.diagonal())).reshape((len(self.Re),1)).astype(int)
-        zsk = np.array([[nL],[nR]]) +  noise        
+        zsk = np.array([[nL],[nR]])   + noise     
         Rsk = self.Re      
         if self.k % self.encoder_reading_frequency == 0:
             return zsk, Rsk
@@ -174,11 +174,12 @@ class DifferentialDriveSimulatedRobot(SimulatedRobot):
         R_yaw = []
     
         if(self.k % self.yaw_reading_frequency == 0):
-            # noise = np.random.normal(0, np.sqrt(R_yaw.diagonal())).reshape((len(R_yaw),1))
+            R_yaw = np.diag([self.v_yaw_std**2])  
+            noise = np.random.normal(0, np.sqrt(R_yaw.diagonal())).reshape((len(R_yaw),1))
             # get yaw reading
-            R_yaw = np.diag([self.v_yaw_std**2]) 
+            
             # compute covariance 
-            yaw = np.array([self.xsk[2,0]]).reshape(1,1)
+            yaw = np.array([self.xsk[2,0]]).reshape(1,1) + noise
                 
         return yaw , R_yaw
     
@@ -192,13 +193,13 @@ class DifferentialDriveSimulatedRobot(SimulatedRobot):
         Rk = []  
         for NxF in self.M:
             # get feature and compute feature observation with some noise
-            noise = np.random.normal(0,0.001,(3,1))
+            # noise = np.random.normal(0.00001,0.00001,(2,1))
             x_f,y_f = NxF ## Feature Pose 
             x_r,y_r = self.xsk[0,0] , self.xsk[1,0] # Robot pose
             distance = sqrt((x_f-x_r)**2 + (y_f-y_r)**2) # calculate distance range
-            
-            if(distance < 200):
-                 zk.append(NxF.boxplus(Pose3D.ominus( self.xsk[0:3,0].reshape((3,1)) + noise)))           
+            noise = np.random.normal(0, np.sqrt(self.Rfc.diagonal())).reshape((len(self.Rfc),1))
+            if(distance < self.Cartesian2D_max_range):
+                 zk.append(NxF.boxplus(Pose3D.ominus( self.xsk[0:3,0].reshape((3,1)))) + noise)           
                 # Measurement noise
                  Rk.append(self.Rfc)  
             
@@ -216,14 +217,15 @@ class DifferentialDriveSimulatedRobot(SimulatedRobot):
         zk = []
         Rk = []
         for NxF in self.M:
-            # get feature and add some noise
-            noise = np.random.normal(0,0.001,(3,1))
+            # get feature 
+            noise = np.random.normal(0, np.sqrt(self.Rfp.diagonal())).reshape((len(self.Rfp),1))
             x_f,y_f = NxF ## Feature Pose 
             x_r,y_r = self.xsk[0,0] , self.xsk[1,0] # Robot pose
             distance = sqrt((x_f-x_r)**2 + (y_f-y_r)**2) # calculate distance range
             
             if(distance < self.Polar2D_max_range): # only features in the distance range to be valid
-                Cartes_Feature = NxF.boxplus(Pose3D.ominus(self.xsk[0:3,0].reshape((3,1)) + noise))
+                # add noise to the feature observation
+                Cartes_Feature = NxF.boxplus(Pose3D.ominus(self.xsk[0:3,0].reshape((3,1)))) + noise
                 Polar_Feature = c2p(Cartes_Feature)
                 zk.append(Polar_Feature)
                 

@@ -57,7 +57,9 @@ class EKF_3DOFDifferentialDriveCtVelocity(GFLocalization, DR_3DOFDifferentialDri
                             [ 0,0,0,self.Kn_inv[1,0],0,self.Kn_inv[1,1]]])
             H = np.block([[H], [H_n]])
         # Combine number of pulses read from the left and right wheel encoders
-        h = H @ xk.reshape((6,1))
+        print("H" , H)
+
+        h = H @ xk[0:6]
         
         return h  # return the expected observations
 
@@ -67,10 +69,10 @@ class EKF_3DOFDifferentialDriveCtVelocity(GFLocalization, DR_3DOFDifferentialDri
         :return: uk,Qk:
         """
         # TODO: To be completed by the student
-        uk = None
-        # covariance of the acceleration according to 3 axises (x, y, heading)
-        Qw = np.array([1.5 ** 2, 1 ** 2, np.deg2rad(5) ** 2])          
-        Qk = np.diag(Qw)                                                    
+ 
+        uk , Qk = DR_3DOFDifferentialDrive.GetInput(self)  # gets uk,Qk from DR_3DOFDiffer_Robot Class  
+        uk = None      #  
+        Qk = np.diag(np.array([0.1 ** 2, 0.01 ** 2, np.deg2rad(1) ** 2]))  #  acceleration noise                           
         return uk, Qk
 
     def GetMeasurements(self):  # override the observation model
