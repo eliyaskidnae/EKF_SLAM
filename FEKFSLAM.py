@@ -97,23 +97,24 @@ class FEKFSLAM(FEKFMBL):
 
             End = Jgx@(Pk[0:pose_dim,0:pose_dim]) @ Jgx.T + Jgv@Rfpi@Jgv.T # end digonal matrix 
 
-            Lower_block = Jgx@(Pk[0:pose_dim,0:pose_dim])  # 
-
             Right_block = (Pk[0:pose_dim,0:pose_dim]) @ Jgx.T
-
+            # Lower_block = Jgx@Pk[0:pose_dim,0:pose_dim]
             for i in range(pose_dim , state_len , xF_dim):
                 
                 # Lower = Jgx@Pk[0 : pose_dim, i:i+xF_dim]
                 Right = Pk[i:i+xF_dim,0:pose_dim] @ Jgx.T
+
                 # Lower_block = np.block([[Lower_block , Lower]])
+
                 Right_block = np.block([[Right_block] , [Right]])
             # Merge all blocks together
             Pk = np.block([[Pk,Right_block],[Right_block.T,End]])
             state_len += xF_dim # state vector length
-
+        # print("Pk" ,Pk)
         self.nf = int((len(xk) - self.xB_dim)/2) # number of features
-
-        return xk , Pk
+        self.xk = xk
+        self.Pk = Pk
+        return self.xk , self.Pk
     
 
     def Prediction(self, uk, Qk, xk_1, Pk_1):
@@ -217,24 +218,17 @@ class FEKFSLAM(FEKFMBL):
         # KF equations begin here
         # TODO: To be implemented by the student  
         # extract the pose and covariance of the robot only 
-
         robot_state_dim = self.xB_dim # only robot state vector length including velocity 
         state_dim = len(xk_1) # state vector length including features
-
         xk_robot_1  = xk_1[0:robot_state_dim]
-
-        Pk_robot_1  = Pk_1[0:robot_state_dim, 0:robot_state_dim] # the uncertainity of the robot only
-       
-       
+        Pk_robot_1  = Pk_1[0:robot_state_dim, 0:robot_state_dim] # the uncertainity of the robot only 
         Pk_feature  = Pk_1[robot_state_dim: , robot_state_dim:] # the uncertainity of the features only 
 
         # Calculate Mean of the robot pose
-        xk_robot= self.f(xk_robot_1, uk) # mean of the robot pose
-        
+        xk_robot= self.f(xk_robot_1, uk) # mean of the robot pose   
         # Calculate Jacobian and  covariance
         Jfx  = self.Jfx(xk_robot, uk) # jacobian with respect state 
         Jfw = self.Jfw(xk_robot) # jacobian with respect noise 
-
         Pk_robot= Jfx@Pk_robot_1@Jfx.T + Jfw@Qk@Jfw.T 
 
         # if there is Feature in the state vector return with out doing nothing
@@ -251,26 +245,19 @@ class FEKFSLAM(FEKFMBL):
 
             # loop through each features in the state vector
             # start , end ,step 
-            print("state_dim" , robot_state_dim , len(Pk_1) ,len(xk_1) )
-            
+       
             # loop through each features in the state vector
             for i in range(robot_state_dim , state_dim , self.xF_dim):
                 
                 Side_col = Jfx@(Pk_1[0 : robot_state_dim , i:i+self.xF_dim ])
-                # Left_row = (Pk_1[ i:i+self.xF_dim ,0:robot_state_dim ])@ Jfx.T
                 B = np.block([[B , Side_col]])
-                # C = np.block([[C] , [Left_row]])
+            
                 
             # Merge All blocks together 
             self.Pk_bar = np.block([[Pk_robot, B] , [B.T , Pk_feature]])
 
-        # print(self.Pk_bar)
-        # print("Xk:" , self.xk_bar)
-       
-        # print("\n PK:" , self.Pk_bar)
+     
         return self.xk_bar, self.Pk_bar
-
-        # return xk_bar, Pk_bar
 
     def Localize(self, xk_1, Pk_1):
         """
@@ -304,7 +291,7 @@ class FEKFSLAM(FEKFMBL):
         
     
         # Update step
-     
+
         xk, Pk  = self.Update(zk, Rk, xk_bar, Pk_bar, Hk, Vk)
         # add new features to the map
 

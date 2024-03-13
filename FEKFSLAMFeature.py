@@ -91,32 +91,26 @@ class FEKFSLAMFeature(MapFeature):
         xBpose_dim = self.xBpose_dim     
         xF_dim = self.xF_dim
         index = j
-
         NxB = self.GetRobotPose(xk)
-        start_index = xB_dim+ xF_dim*index
-        # print( "Fjj" , index ,  xk[start_index : start_index +  xF_dim])
+        start_index = xB_dim + xF_dim*index
         Fj = self.Feature(xk[start_index : start_index +  xF_dim])
-        # Fj = self.M[Fj]
+       
         # Compute the F matrix, which converts vector from filter state to pose
         F = np.block([np.diag(np.ones(xBpose_dim)), np.zeros((xBpose_dim, xB_dim-xBpose_dim))])
         
         J1 = self.J_s2o(Fj.boxplus(Pose3D.ominus(NxB))) @ Fj.J_1boxplus( Pose3D.ominus(NxB)) @ Pose3D.J_ominus(NxB) @F
         J2 = self.J_s2o(Fj.boxplus(Pose3D.ominus(NxB))) @ Fj.J_2boxplus( Pose3D.ominus(NxB)) 
-        
+        # print( "J1" , J1)
         J = np.zeros((xF_dim,0))
         x = np.zeros((2,1))
         J = np.block([J, J1])
 
-        # print( "Fj" , index ,  xk[start_index : start_index +  xF_dim])
-
         for i in range(self.nf):
-            # print( "match jackobian" , i , j)
+        
             if(i==j):
              J = np.block([J, J2])
             else:
              J = np.block([J, np.zeros((xF_dim , xF_dim))])
-
-        # print("Jk" , J)
         return J
         #return ...
 
@@ -127,4 +121,9 @@ class FEKFSLAM2DCartesianFeature(FEKFSLAMFeature, Cartesian2DMapFeature):
     """
     pass
 
-
+class Cartesian2DStoredPolarObservedMapFeature(FEKFSLAMFeature, Cartesian2DStoredPolarObservedMapFeature):
+    """
+    Class to inherit from both :class:`FEKFSLAMFeature` and :class:`Cartesian2DStoredPolarObservedMapFeature` classes.
+    Nothing else to do here (if using s2o & o2s), only needs to be defined.
+    """
+    pass

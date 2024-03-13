@@ -185,6 +185,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         PF = []
         xBpose_dim = self.xBpose_dim
         xB_dim = self.xB_dim   
+        
         for i in range(self.nf):
             hF_i = self.hfj(xk, i)
             PF_i = self.Jhfjx(xk, i) @ Pk @ self.Jhfjx(xk, i).T
@@ -365,7 +366,7 @@ class FEKFMBL(GFLocalization, MapFeature):
         for i in range(len(self.plt_hf_ellipse)):
             self.plt_hf_ellipse[i].remove()
         self.plt_hf_ellipse = []
-
+       
         # Plot Expected Feature Observation Ellipses
         for Fj in range(self.nf):   # for all map features
             h_Fj = self.Feature(self.hfj(self.xk, Fj)) # expected feature observation in the B-Frame in the observation space

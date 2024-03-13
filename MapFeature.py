@@ -456,7 +456,4 @@ if __name__ == '__main__':
     
     a = Cartesian2DMapFeature().Jgx(xs0, M[0])
 
-    print("a=", a)
-
-
     exit(0)

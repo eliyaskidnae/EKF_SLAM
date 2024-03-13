@@ -71,11 +71,11 @@ class DR_3DOFDifferentialDrive(Localization):
         vl = dl/self.dt
         vr = dr/self.dt
 
-        vx = (vr + vl) / 2
+        vx =  (vr + vl) / 2
         w  =  (vr - vl)/ self.wheelBase#
         v  = np.array([[vx],[0], [w]])
                 
-        Qk = np.diag(np.array([0.1** 2, 0.01** 2, np.deg2rad(1) ** 2]))  # Process noise
-        uk  = Pose3D(v * self.dt) 
-
+        Qk = np.diag(np.array([0.01** 2, 0.01** 2, np.deg2rad(0.3) ** 2]))  # Process noise
+        noise = np.random.multivariate_normal(np.zeros(len(Qk)), Qk, 1).reshape((len(Qk),1))
+        uk  = Pose3D(v * self.dt) + noise
         return uk , Qk
